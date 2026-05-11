@@ -1,0 +1,1566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Annual Report Analyzer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;1,9..144,300&family=DM+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg: #0f0f0f;
+    --bg2: #161616;
+    --bg3: #1e1e1e;
+    --bg4: #252525;
+    --border: #2a2a2a;
+    --border2: #333;
+    --text: #e8e4dc;
+    --text2: #888;
+    --text3: #555;
+    --accent: #c8f060;
+    --accent2: #8fdc40;
+    --amber: #f0b840;
+    --red: #e05050;
+    --blue: #60b0f0;
+    --green: #50d090;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* LAYOUT */
+  .shell {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    grid-template-rows: 56px 1fr;
+    min-height: 100vh;
+  }
+
+  /* TOPBAR */
+  .topbar {
+    grid-column: 1 / -1;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .topbar-logo {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 300;
+    color: var(--accent);
+    letter-spacing: -0.02em;
+  }
+  .topbar-logo span { font-style: italic; }
+  .topbar-sep { width: 1px; height: 20px; background: var(--border2); }
+  .topbar-company {
+    font-size: 13px;
+    color: var(--text2);
+    font-family: 'DM Mono', monospace;
+  }
+  .topbar-company strong { color: var(--text); font-weight: 500; }
+  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 500;
+    background: var(--bg3); border: 1px solid var(--border2);
+    color: var(--text2);
+  }
+  .status-pill.active { background: rgba(200,240,96,0.08); border-color: rgba(200,240,96,0.3); color: var(--accent); }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  /* SIDEBAR */
+  .sidebar {
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    padding: 20px 0;
+    overflow-y: auto;
+    position: sticky;
+    top: 56px;
+    height: calc(100vh - 56px);
+  }
+  .sidebar-section-label {
+    font-size: 10px; font-weight: 500; letter-spacing: 0.1em;
+    color: var(--text3); text-transform: uppercase;
+    padding: 0 16px; margin-bottom: 6px; margin-top: 20px;
+  }
+  .sidebar-section-label:first-child { margin-top: 0; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 16px; cursor: pointer;
+    color: var(--text2); font-size: 13px;
+    transition: all 0.15s; border-left: 2px solid transparent;
+    text-decoration: none;
+  }
+  .nav-item:hover { color: var(--text); background: var(--bg3); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(200,240,96,0.05); }
+  .nav-icon { font-size: 15px; width: 18px; text-align: center; }
+  .nav-badge {
+    margin-left: auto; font-size: 10px; font-weight: 500;
+    background: var(--bg4); color: var(--text2);
+    padding: 1px 6px; border-radius: 10px;
+    font-family: 'DM Mono', monospace;
+  }
+  .nav-badge.warn { background: rgba(240,184,64,0.15); color: var(--amber); }
+  .nav-badge.ok { background: rgba(80,208,144,0.15); color: var(--green); }
+
+  /* MAIN */
+  .main {
+    padding: 28px 32px;
+    overflow-y: auto;
+    height: calc(100vh - 56px);
+  }
+
+  /* PANELS */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .panel-title {
+    font-family: 'Fraunces', serif;
+    font-size: 26px; font-weight: 300;
+    color: var(--text); margin-bottom: 6px;
+    letter-spacing: -0.02em;
+  }
+  .panel-sub { font-size: 13px; color: var(--text2); margin-bottom: 28px; }
+
+  /* CARDS */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    margin-bottom: 16px;
+  }
+  .card-header {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 16px;
+  }
+  .card-title { font-size: 13px; font-weight: 500; color: var(--text); }
+  .card-badge {
+    font-size: 10px; font-weight: 500; padding: 2px 8px;
+    border-radius: 10px; letter-spacing: 0.05em;
+  }
+  .badge-manual { background: rgba(240,184,64,0.12); color: var(--amber); }
+  .badge-auto { background: rgba(80,208,144,0.12); color: var(--green); }
+  .badge-ai { background: rgba(96,176,240,0.12); color: var(--blue); }
+
+  /* INPUTS */
+  textarea, input[type=text], input[type=password] {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 12px;
+    padding: 10px 12px; resize: vertical;
+    transition: border-color 0.15s; outline: none;
+  }
+  textarea:focus, input:focus { border-color: var(--accent); }
+  input[type=text], input[type=password] { font-size: 13px; font-family: 'DM Sans', sans-serif; resize: none; }
+
+  /* BUTTONS */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 500; cursor: pointer;
+    border: 1px solid var(--border2); background: var(--bg3);
+    color: var(--text); transition: all 0.15s; outline: none;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .btn:hover { background: var(--bg4); border-color: var(--border2); }
+  .btn-primary {
+    background: var(--accent); color: #0f0f0f;
+    border-color: var(--accent);
+  }
+  .btn-primary:hover { background: var(--accent2); border-color: var(--accent2); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+  /* KPI TABLE */
+  .kpi-table { width: 100%; border-collapse: collapse; }
+  .kpi-table th {
+    text-align: left; font-size: 10px; font-weight: 500;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text3); padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .kpi-table td {
+    padding: 8px 10px; border-bottom: 1px solid var(--border);
+    font-size: 12px; vertical-align: middle;
+  }
+  .kpi-table tr:last-child td { border-bottom: none; }
+  .kpi-table tr:hover td { background: var(--bg3); }
+  .kpi-metric { color: var(--text2); }
+  .kpi-value { font-family: 'DM Mono', monospace; color: var(--text); font-weight: 500; }
+  .kpi-value.na { color: var(--text3); font-style: italic; }
+  .kpi-page { color: var(--text3); font-family: 'DM Mono', monospace; font-size: 11px; }
+  .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; }
+  .dot-ok { background: var(--green); }
+  .dot-warn { background: var(--amber); }
+
+  /* TABS */
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .tab {
+    padding: 8px 14px; font-size: 12px; font-weight: 500;
+    color: var(--text2); cursor: pointer; border-bottom: 2px solid transparent;
+    margin-bottom: -1px; transition: all 0.15s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* SCORE GRID */
+  .score-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px; margin-bottom: 20px;
+  }
+  .score-card {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 14px 16px;
+    text-align: center;
+  }
+  .score-label { font-size: 10px; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; }
+  .score-num {
+    font-family: 'Fraunces', serif; font-size: 36px;
+    font-weight: 300; line-height: 1; margin-bottom: 6px;
+  }
+  .score-num.high { color: var(--accent); }
+  .score-num.mid { color: var(--amber); }
+  .score-num.low { color: var(--red); }
+  .score-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .score-fill { height: 100%; border-radius: 2px; background: var(--accent); transition: width 0.6s ease; }
+
+  /* CATEGORY SCORES */
+  .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .cat-card {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 12px 14px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .cat-score {
+    font-family: 'DM Mono', monospace; font-size: 20px; font-weight: 500;
+    min-width: 36px; text-align: center;
+  }
+  .cat-info { flex: 1; }
+  .cat-name { font-size: 11px; font-weight: 500; color: var(--text); margin-bottom: 3px; }
+  .cat-just { font-size: 11px; color: var(--text2); line-height: 1.5; }
+
+  /* ANALYSIS TEXT */
+  .analysis-raw {
+    font-size: 13px; line-height: 1.8; color: var(--text);
+    white-space: pre-wrap; font-family: 'DM Mono', monospace;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 16px;
+    max-height: 500px; overflow-y: auto;
+  }
+
+  /* FLAGS & STRENGTHS */
+  .flag-list { list-style: none; }
+  .flag-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+    font-size: 13px; color: var(--text2); line-height: 1.5;
+  }
+  .flag-item:last-child { border-bottom: none; }
+  .flag-icon { flex-shrink: 0; margin-top: 2px; font-size: 15px; }
+  .flag-icon.red { color: var(--red); }
+  .flag-icon.green { color: var(--green); }
+
+  /* REC CARDS */
+  .rec-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+  .rec-card {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 16px;
+  }
+  .rec-uc { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-bottom: 6px; }
+  .rec-verdict {
+    font-family: 'Fraunces', serif; font-size: 20px; font-weight: 300;
+    margin-bottom: 8px; line-height: 1.2;
+  }
+  .rec-verdict.pos { color: var(--green); }
+  .rec-verdict.neu { color: var(--amber); }
+  .rec-verdict.neg { color: var(--red); }
+  .rec-text { font-size: 12px; color: var(--text2); line-height: 1.6; }
+
+  /* QA */
+  .qa-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .qa-item:last-child { border-bottom: none; }
+  .qa-icon.ok { color: var(--green); }
+  .qa-icon.warn { color: var(--amber); }
+  .qa-icon.err { color: var(--red); }
+
+  /* API KEY NOTICE */
+  .api-notice {
+    background: rgba(96,176,240,0.06); border: 1px solid rgba(96,176,240,0.2);
+    border-radius: var(--radius-sm); padding: 12px 14px;
+    font-size: 12px; color: var(--blue); margin-bottom: 16px;
+    line-height: 1.6;
+  }
+
+  /* LOADING */
+  .loading-bar {
+    height: 2px; background: var(--border);
+    border-radius: 1px; overflow: hidden; margin-bottom: 16px;
+  }
+  .loading-fill {
+    height: 100%; background: var(--accent);
+    border-radius: 1px;
+    animation: loading 1.5s ease-in-out infinite;
+  }
+  @keyframes loading {
+    0% { width: 0%; margin-left: 0%; }
+    50% { width: 60%; margin-left: 20%; }
+    100% { width: 0%; margin-left: 100%; }
+  }
+  .loading-label { font-size: 12px; color: var(--text2); margin-bottom: 12px; }
+
+  /* EMPTY STATE */
+  .empty {
+    text-align: center; padding: 60px 20px;
+    color: var(--text3); font-size: 13px;
+  }
+  .empty-icon { font-size: 36px; margin-bottom: 12px; }
+
+  /* COPY BUTTON */
+  .copy-area { position: relative; }
+  .copy-btn {
+    position: absolute; top: 8px; right: 8px;
+    background: var(--bg4); border: 1px solid var(--border2);
+    color: var(--text2); padding: 4px 10px; border-radius: 4px;
+    font-size: 11px; cursor: pointer; font-family: 'DM Sans', sans-serif;
+  }
+  .copy-btn:hover { color: var(--text); }
+
+  /* SETTINGS */
+  .settings-group { margin-bottom: 24px; }
+  .settings-label { font-size: 11px; font-weight: 500; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; }
+  .settings-desc { font-size: 12px; color: var(--text2); margin-bottom: 10px; line-height: 1.5; }
+
+  /* API KEY OVERLAY */
+  .api-overlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .api-overlay.hidden { display: none !important; }
+  .api-overlay-box {
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: var(--radius); padding: 36px 40px;
+    width: 100%; max-width: 460px;
+  }
+  .api-overlay-logo {
+    font-family: 'Fraunces', serif; font-size: 22px; font-weight: 300;
+    color: var(--accent); letter-spacing: -0.02em; margin-bottom: 6px;
+  }
+  .api-overlay-logo span { font-style: italic; }
+  .api-overlay-sub {
+    font-size: 13px; color: var(--text2); margin-bottom: 28px; line-height: 1.6;
+  }
+  .api-overlay-label {
+    font-size: 10px; font-weight: 500; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text3); margin-bottom: 8px;
+  }
+  .api-overlay-hint {
+    font-size: 11px; color: var(--text3); margin-top: 8px; line-height: 1.5;
+  }
+  .api-overlay-err {
+    font-size: 12px; color: var(--red); margin-top: 10px; min-height: 16px;
+  }
+
+  /* HIDDEN */
+  .hidden { display: none !important; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* DIVIDER */
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+  /* SECTION HEADER */
+  .section-head { font-size: 11px; font-weight: 500; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; margin-top: 20px; }
+  .section-head:first-child { margin-top: 0; }
+</style>
+</head>
+<body>
+
+<!-- API KEY OVERLAY -->
+<div class="api-overlay" id="api-overlay">
+  <div class="api-overlay-box">
+    <div class="api-overlay-logo">Annual<span>Report</span> Analyzer</div>
+    <div class="api-overlay-sub">Um die KI-Analyse nutzen zu können, gib deinen Anthropic API-Key ein. Er wird nur in deinem Browser gespeichert und ausschließlich direkt an api.anthropic.com gesendet.</div>
+    <div class="api-overlay-label">Claude API Key</div>
+    <input type="password" id="overlay-key-input" placeholder="sk-ant-..." autocomplete="off" />
+    <div class="api-overlay-hint">Deinen Key findest du unter console.anthropic.com</div>
+    <div class="api-overlay-err" id="overlay-err"></div>
+    <div style="margin-top:20px">
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="submitOverlayKey()">Weiter →</button>
+    </div>
+  </div>
+</div>
+
+<div class="shell">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="topbar-logo">Annual<span>Report</span> Analyzer</div>
+    <div class="topbar-sep"></div>
+    <div class="topbar-company" id="topbar-company">No company loaded</div>
+    <div class="topbar-right">
+      <div class="status-pill" id="status-pill">
+        <div class="status-dot"></div>
+        <span id="status-text">Ready</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sidebar-section-label">Workflow</div>
+    <a class="nav-item active" onclick="showPanel('input')" href="#">
+      <span class="nav-icon">①</span> Input
+      <span class="nav-badge" id="badge-input">—</span>
+    </a>
+    <a class="nav-item" onclick="showPanel('kpis')" href="#">
+      <span class="nav-icon">②</span> KPIs
+      <span class="nav-badge" id="badge-kpis">—</span>
+    </a>
+    <a class="nav-item" onclick="showPanel('analysis')" href="#">
+      <span class="nav-icon">③</span> Analysis
+      <span class="nav-badge" id="badge-analysis">—</span>
+    </a>
+    <a class="nav-item" onclick="showPanel('qa')" href="#">
+      <span class="nav-icon">④</span> QA Check
+      <span class="nav-badge" id="badge-qa">—</span>
+    </a>
+    <a class="nav-item" onclick="showPanel('output')" href="#">
+      <span class="nav-icon">⑤</span> Output
+      <span class="nav-badge" id="badge-output">—</span>
+    </a>
+
+    <div class="sidebar-section-label">Tools</div>
+    <a class="nav-item" onclick="showPanel('gemini')" href="#">
+      <span class="nav-icon">◈</span> 2nd Opinion
+      <span class="nav-badge" id="badge-gemini">Gemini</span>
+    </a>
+    <a class="nav-item" onclick="showPanel('settings')" href="#">
+      <span class="nav-icon">⚙</span> Settings
+    </a>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- PANEL: INPUT -->
+    <div class="panel active" id="panel-input">
+      <div class="panel-title">Paste NotebookLM output</div>
+      <div class="panel-sub">Copy your full KPI table from NotebookLM and paste it below. The tool will parse it automatically.</div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">NotebookLM KPI table</div>
+          <span class="card-badge badge-manual">manual step</span>
+        </div>
+        <textarea id="nlm-input" rows="20" placeholder="Company
+Alphabet Inc.
+Fiscal Year
+2025
+— UC1 Investor —
+Metric	Value	Unit	Page
+Return on Equity (ROE)	31.83	%	48, 49
+Earnings per Share (EPS) current year	10.81	$	49
+...
+
+Paste your full NotebookLM output here (tab-separated format)"></textarea>
+        <div style="display:flex; justify-content:flex-end; margin-top:12px; gap:8px">
+          <button class="btn btn-sm" onclick="loadSampleData()">Load sample data</button>
+          <button class="btn btn-primary" onclick="parseAndNext()">Parse KPIs →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL: KPIS -->
+    <div class="panel" id="panel-kpis">
+      <div class="panel-title">Extracted KPIs</div>
+      <div class="panel-sub">Review the parsed key figures. Green = found with citation. Amber = not available in report.</div>
+
+      <div class="score-grid" style="grid-template-columns:repeat(3,1fr)">
+        <div class="score-card">
+          <div class="score-label">Total KPIs</div>
+          <div class="score-num" id="kpi-total" style="color:var(--text)">—</div>
+        </div>
+        <div class="score-card">
+          <div class="score-label">With citation</div>
+          <div class="score-num high" id="kpi-cited">—</div>
+        </div>
+        <div class="score-card">
+          <div class="score-label">Not available</div>
+          <div class="score-num" id="kpi-na" style="color:var(--amber)">—</div>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active" onclick="showKpiTab('uc1',this)">UC1 · Investor</div>
+        <div class="tab" onclick="showKpiTab('uc2',this)">UC2 · Creditor</div>
+        <div class="tab" onclick="showKpiTab('uc3',this)">UC3 · Employee</div>
+      </div>
+      <div id="kpi-uc1-content"></div>
+      <div id="kpi-uc2-content" class="hidden"></div>
+      <div id="kpi-uc3-content" class="hidden"></div>
+
+      <div style="display:flex;justify-content:flex-end;margin-top:16px">
+        <button class="btn btn-primary" onclick="runAnalysis()">Run AI analysis →</button>
+      </div>
+    </div>
+
+    <!-- PANEL: ANALYSIS -->
+    <div class="panel" id="panel-analysis">
+      <div class="panel-title">AI analysis</div>
+      <div class="panel-sub">Scored across 6 categories with weighted totals for each use case.</div>
+
+      <div id="analysis-loading" class="hidden">
+        <div class="loading-label">Claude is analyzing the company...</div>
+        <div class="loading-bar"><div class="loading-fill"></div></div>
+      </div>
+
+      <div id="analysis-content" class="hidden">
+        <div class="score-grid">
+          <div class="score-card">
+            <div class="score-label">Investor score</div>
+            <div class="score-num" id="sc-investor">—</div>
+            <div class="score-bar"><div class="score-fill" id="pb-investor" style="width:0"></div></div>
+          </div>
+          <div class="score-card">
+            <div class="score-label">Creditor score</div>
+            <div class="score-num" id="sc-creditor">—</div>
+            <div class="score-bar"><div class="score-fill" id="pb-creditor" style="width:0"></div></div>
+          </div>
+          <div class="score-card">
+            <div class="score-label">Employee score</div>
+            <div class="score-num" id="sc-employee">—</div>
+            <div class="score-bar"><div class="score-fill" id="pb-employee" style="width:0"></div></div>
+          </div>
+        </div>
+
+        <div class="section-head">Category scores</div>
+        <div class="cat-grid" id="cat-grid"></div>
+
+        <div class="tabs" style="margin-top:16px">
+          <div class="tab active" onclick="showAnalysisTab('raw',this)">Full output</div>
+          <div class="tab" onclick="showAnalysisTab('flags',this)">Red flags</div>
+          <div class="tab" onclick="showAnalysisTab('strengths',this)">Key strengths</div>
+        </div>
+
+        <div id="atab-raw">
+          <div class="copy-area">
+            <div class="analysis-raw" id="analysis-raw-text"></div>
+            <button class="copy-btn" onclick="copyRaw()">Copy</button>
+          </div>
+        </div>
+        <div id="atab-flags" class="hidden">
+          <ul class="flag-list" id="flags-list"></ul>
+        </div>
+        <div id="atab-strengths" class="hidden">
+          <ul class="flag-list" id="strengths-list"></ul>
+        </div>
+      </div>
+
+      <div id="analysis-empty" class="empty">
+        <div class="empty-icon">◎</div>
+        <div>Run the analysis from the KPIs panel first</div>
+      </div>
+    </div>
+
+    <!-- PANEL: QA -->
+    <div class="panel" id="panel-qa">
+      <div class="panel-title">QA / Safety check</div>
+      <div class="panel-sub">Automated verification of data quality, citation coverage, and output completeness.</div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Data quality</div>
+          <span class="card-badge badge-auto">automated</span>
+        </div>
+        <div id="qa-list">
+          <div class="empty" style="padding:30px">Run the analysis first to see QA results</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">AI plausibility check</div>
+          <span class="card-badge badge-ai">AI</span>
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">
+          Claude cross-checks each extracted figure against its training knowledge and flags values that seem implausible or inconsistent with expected ranges.
+        </div>
+        <div id="qa-ai-result">
+          <div class="empty" style="padding:20px">Run the main analysis first, then verify numbers.</div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:12px">
+          <button class="btn btn-sm btn-primary" onclick="runQAVerification()" id="qa-ai-btn">Verify numbers with AI →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL: OUTPUT -->
+    <div class="panel" id="panel-output">
+      <div class="panel-title">Final output</div>
+      <div class="panel-sub">Structured recommendations for all three use cases — ready to copy into your submission.</div>
+
+      <div id="output-empty" class="empty">
+        <div class="empty-icon">◎</div>
+        <div>Complete the analysis first</div>
+      </div>
+
+      <div id="output-content" class="hidden">
+        <div class="section-head" style="margin-top:0">Category scores</div>
+        <div class="cat-grid" id="output-cat-grid" style="margin-bottom:20px"></div>
+
+        <div class="rec-grid" id="rec-grid"></div>
+
+        <div class="section-head">Full submission text</div>
+        <div class="copy-area">
+          <pre class="analysis-raw" id="output-full" style="font-size:12px;line-height:1.7"></pre>
+          <button class="copy-btn" onclick="copyFull()">Copy all</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL: GEMINI -->
+    <div class="panel" id="panel-gemini">
+      <div class="panel-title">Second Opinion <span style="font-size:15px;color:var(--blue);font-family:'DM Mono',monospace;font-weight:400">· Gemini</span></div>
+      <div class="panel-sub">Independent analysis by Google Gemini — same KPIs, different model, second perspective.</div>
+
+      <div id="gemini-loading" class="hidden">
+        <div class="loading-label">Gemini is analyzing the company...</div>
+        <div class="loading-bar"><div class="loading-fill" style="background:var(--blue)"></div></div>
+      </div>
+
+      <div id="gemini-content" class="hidden">
+        <div class="score-grid">
+          <div class="score-card">
+            <div class="score-label">Investor score</div>
+            <div class="score-num" id="gsc-investor">—</div>
+            <div class="score-bar"><div class="score-fill" id="gpb-investor" style="width:0;background:var(--blue)"></div></div>
+          </div>
+          <div class="score-card">
+            <div class="score-label">Creditor score</div>
+            <div class="score-num" id="gsc-creditor">—</div>
+            <div class="score-bar"><div class="score-fill" id="gpb-creditor" style="width:0;background:var(--blue)"></div></div>
+          </div>
+          <div class="score-card">
+            <div class="score-label">Employee score</div>
+            <div class="score-num" id="gsc-employee">—</div>
+            <div class="score-bar"><div class="score-fill" id="gpb-employee" style="width:0;background:var(--blue)"></div></div>
+          </div>
+        </div>
+
+        <div class="section-head">Category scores</div>
+        <div class="cat-grid" id="gcat-grid"></div>
+
+        <div class="tabs" style="margin-top:16px">
+          <div class="tab active" onclick="showGeminiTab('raw',this)">Full output</div>
+          <div class="tab" onclick="showGeminiTab('compare',this)">vs. Claude</div>
+        </div>
+        <div id="gtab-raw">
+          <div class="copy-area">
+            <div class="analysis-raw" id="gemini-raw-text"></div>
+            <button class="copy-btn" onclick="copyGeminiRaw()">Copy</button>
+          </div>
+        </div>
+        <div id="gtab-compare" class="hidden">
+          <div id="gemini-compare-content"></div>
+        </div>
+      </div>
+
+      <div id="gemini-empty" class="empty">
+        <div class="empty-icon" style="color:var(--blue)">◈</div>
+        <div>Parse your KPIs first, then run the Gemini analysis below.</div>
+        <div style="margin-top:20px">
+          <button class="btn btn-primary" style="background:var(--blue);border-color:var(--blue);color:#0f0f0f" onclick="runGeminiAnalysis()" id="gemini-run-btn">Run Gemini analysis →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL: SETTINGS -->
+    <div class="panel" id="panel-settings">
+      <div class="panel-title">Settings</div>
+      <div class="panel-sub">Configure API keys to enable analysis features.</div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Claude API key</div>
+          <span class="card-badge badge-ai">required</span>
+        </div>
+        <div class="api-notice">
+          Your API key is stored only in your browser's localStorage and never sent anywhere except directly to api.anthropic.com. Get your key at console.anthropic.com.
+        </div>
+        <div class="settings-group">
+          <div class="settings-label">API key</div>
+          <input type="password" id="api-key-input" placeholder="sk-ant-..." />
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn btn-primary btn-sm" onclick="saveApiKey()">Save key</button>
+          <button class="btn btn-sm" onclick="clearApiKey()">Clear</button>
+        </div>
+        <div id="key-status" style="font-size:12px;color:var(--text2);margin-top:10px"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Gemini API key</div>
+          <span class="card-badge" style="background:rgba(96,176,240,0.12);color:var(--blue)">optional</span>
+        </div>
+        <div class="api-notice">
+          Required for the 2nd Opinion panel. Stored only in localStorage, sent directly to generativelanguage.googleapis.com. Get your key at aistudio.google.com.
+        </div>
+        <div class="settings-group">
+          <div class="settings-label">API key</div>
+          <input type="password" id="gemini-key-input" placeholder="AIza..." />
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn btn-sm" style="background:var(--blue);border-color:var(--blue);color:#0f0f0f" onclick="saveGeminiKey()">Save key</button>
+          <button class="btn btn-sm" onclick="clearGeminiKey()">Clear</button>
+        </div>
+        <div id="gemini-key-status" style="font-size:12px;color:var(--text2);margin-top:10px"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">About this tool</div></div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.7">
+          This tool implements the AI-assisted annual report analysis workflow:<br><br>
+          <strong style="color:var(--text)">Step 1 (manual):</strong> You paste the NotebookLM KPI extraction.<br>
+          <strong style="color:var(--text)">Steps 2–4 (automated):</strong> The tool parses, sends to Claude API, and validates.<br>
+          <strong style="color:var(--text)">Step 5:</strong> Copy the final structured output for submission.<br><br>
+          Scoring follows the 6-category schema with weighted totals for UC1 (Investor), UC2 (Creditor), and UC3 (Employee).
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let state = {
+  parsed: { uc1: [], uc2: [], uc3: [] },
+  company: '',
+  year: '',
+  analysisText: '',
+  scores: {}
+};
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+window.onload = () => {
+  const saved = localStorage.getItem('claude_api_key');
+  if (saved) {
+    document.getElementById('api-overlay').classList.add('hidden');
+    document.getElementById('api-key-input').value = saved;
+  }
+  const geminiSaved = localStorage.getItem('gemini_api_key');
+  if (geminiSaved) document.getElementById('gemini-key-input').value = geminiSaved;
+  updateKeyStatus();
+  updateGeminiKeyStatus();
+};
+
+// ─── NAVIGATION ──────────────────────────────────────────────────────────────
+function navTo(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  const link = document.querySelector(`.nav-item[onclick*="'${name}'"]`);
+  if (link) link.classList.add('active');
+}
+
+function showPanel(name) {
+  navTo(name);
+  event.currentTarget.classList.add('active');
+}
+
+// ─── PARSE ────────────────────────────────────────────────────────────────────
+function parseAndNext() {
+  const raw = document.getElementById('nlm-input').value.trim();
+  if (!raw) { alert('Please paste your NotebookLM output first.'); return; }
+  parseNLM(raw);
+  renderKpis();
+  // nav
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.nav-item')[1].classList.add('active');
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-kpis').classList.add('active');
+}
+
+function parseNLM(raw) {
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  state.company = ''; state.year = '';
+  state.parsed = { uc1: [], uc2: [], uc3: [] };
+  let currentUC = null;
+
+  const hasTabLines = lines.some(l => (l.match(/\t/g) || []).length >= 2);
+  const isUCHeader = nl => /uc\s*[123]/i.test(nl) || (/[-–—]/.test(nl) && /(investor|creditor|employee)/i.test(nl));
+
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    const ll = l.toLowerCase();
+
+    if (l === 'Company' && lines[i+1]) { state.company = lines[++i]; continue; }
+    if (l === 'Fiscal Year' && lines[i+1]) { state.year = lines[++i]; continue; }
+
+    if (/uc\s*1/i.test(l) || (ll.includes('investor') && /[-–—]/.test(l))) {
+      currentUC = 'uc1';
+      if (lines[i+1] && /^metric$/i.test(lines[i+1])) i += 4;
+      continue;
+    }
+    if (/uc\s*2/i.test(l) || (ll.includes('creditor') && /[-–—]/.test(l))) {
+      currentUC = 'uc2';
+      if (lines[i+1] && /^metric$/i.test(lines[i+1])) i += 4;
+      continue;
+    }
+    if (/uc\s*3/i.test(l) || (ll.includes('employee') && /[-–—]/.test(l))) {
+      currentUC = 'uc3';
+      if (lines[i+1] && /^metric$/i.test(lines[i+1])) i += 4;
+      continue;
+    }
+
+    if (!currentUC) continue;
+    if (/^metric\b/i.test(l)) continue;
+
+    if (hasTabLines && l.includes('\t')) {
+      const parts = l.split('\t').map(s => s.trim());
+      if (parts.length >= 2) {
+        state.parsed[currentUC].push({ metric: parts[0], value: parts[1], unit: (parts[2]||'').trim(), page: (parts[3]||'').trim() });
+      }
+    } else if (!hasTabLines && i + 3 < lines.length) {
+      const value = lines[i+1], unit = lines[i+2], page = lines[i+3];
+      if (!isUCHeader(value) && !isUCHeader(unit) && !isUCHeader(page)) {
+        state.parsed[currentUC].push({ metric: l, value, unit, page });
+        i += 3;
+      }
+    }
+  }
+
+  document.getElementById('topbar-company').innerHTML = state.company ? `<strong>${state.company}</strong> · FY ${state.year}` : 'Company loaded';
+  document.getElementById('badge-input').textContent = '✓';
+  document.getElementById('badge-input').className = 'nav-badge ok';
+}
+
+function renderKpis() {
+  const all = [...state.parsed.uc1, ...state.parsed.uc2, ...state.parsed.uc3];
+  const total = all.length;
+  const na = all.filter(r => r.value === 'not available').length;
+  const cited = all.filter(r => r.value !== 'not available' && r.page).length;
+
+  document.getElementById('kpi-total').textContent = total;
+  document.getElementById('kpi-cited').textContent = cited;
+  document.getElementById('kpi-na').textContent = na;
+
+  ['uc1','uc2','uc3'].forEach(uc => {
+    const rows = state.parsed[uc];
+    if (!rows.length) { document.getElementById('kpi-'+uc+'-content').innerHTML = '<p style="color:var(--text3);font-size:13px;padding:10px 0">No data found for this section.</p>'; return; }
+    let html = '<table class="kpi-table"><thead><tr><th>Metric</th><th>Value</th><th>Unit</th><th>Page</th></tr></thead><tbody>';
+    rows.forEach(r => {
+      const ok = r.value !== 'not available';
+      html += `<tr>
+        <td class="kpi-metric"><span class="dot ${ok?'dot-ok':'dot-warn'}"></span>${r.metric}</td>
+        <td class="kpi-value ${ok?'':'na'}">${r.value}</td>
+        <td style="color:var(--text3);font-size:11px;font-family:'DM Mono',monospace">${r.unit}</td>
+        <td class="kpi-page">${r.page || '—'}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    document.getElementById('kpi-'+uc+'-content').innerHTML = html;
+  });
+
+  const missingBadge = na > 0 ? na + ' missing' : all.length + ' KPIs';
+  document.getElementById('badge-kpis').textContent = missingBadge;
+  document.getElementById('badge-kpis').className = 'nav-badge ' + (na > 0 ? 'warn' : 'ok');
+}
+
+function showKpiTab(uc, el) {
+  ['uc1','uc2','uc3'].forEach(u => document.getElementById('kpi-'+u+'-content').classList.add('hidden'));
+  document.querySelectorAll('#panel-kpis .tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('kpi-'+uc+'-content').classList.remove('hidden');
+  el.classList.add('active');
+}
+
+// ─── ANALYSIS ─────────────────────────────────────────────────────────────────
+function get(name) {
+  const all = [...state.parsed.uc1, ...state.parsed.uc2, ...state.parsed.uc3];
+  const matches = all.filter(r => r.metric.toLowerCase().includes(name.toLowerCase()));
+  const f = matches.reduce((best, curr) => !best || curr.metric.length < best.metric.length ? curr : best, null);
+  if (!f || f.value === 'not available') return null;
+  return `${f.value}${f.unit && f.unit !== 'not available' ? ' ' + f.unit : ''}`;
+}
+
+function getVal(name) { return get(name) ?? 'not available'; }
+
+function buildPrompt() {
+  const c = state.company, y = state.year;
+  return `Analyze the following company based on the key figures provided from its Annual Report. Score the company in 6 categories on a scale of 1–5 (1 = very weak, 5 = very strong). Also consider the company's industry.
+
+COMPANY: ${c}
+FISCAL YEAR: ${y}
+
+--- KEY FIGURES (from Annual Report) ---
+
+PROFITABILITY:
+- Revenue: ${getVal('Total Revenue current')} / YoY Growth: ${getVal('Revenue growth')}
+- Operating Margin: ${getVal('Operating Margin')}
+- ROE: ${getVal('Return on Equity')}
+- EPS current: ${get('EPS) current') ?? get('Earnings per Share (EPS) current') ?? 'not available'}
+- EPS prior year: ${get('EPS) prior year') ?? get('Earnings per Share (EPS) prior year') ?? 'not available'}
+- Net Income current: ${getVal('Net Income current')}
+- Net Income prior year: ${getVal('Net Income prior')}
+
+LIQUIDITY & SOLVENCY:
+- Current Ratio: ${getVal('Current Ratio')}
+- Debt/Equity: ${getVal('Debt-to-Equity')}
+- Interest Coverage: ${getVal('Interest Coverage')}
+- Equity Ratio: ${getVal('Equity Ratio')}
+
+CASH FLOW:
+- Operating Cash Flow: ${getVal('Operating Cash Flow')}
+- Free Cash Flow: ${getVal('Free Cash Flow')}
+
+VALUATION:
+- P/E Ratio: ${getVal('Price-to-Earnings')}
+- Dividend per share: ${getVal('Dividend per share')}
+
+STABILITY & RISK:
+- Equity Ratio: ${getVal('Equity Ratio')}
+- Credit Rating: ${getVal('Credit Rating')}
+- Debt/Equity: ${getVal('Debt-to-Equity')}
+
+EMPLOYER QUALITY:
+- Headcount current: ${getVal('Number of Employees current')}
+- Headcount prior: ${getVal('Number of Employees prior')}
+- R&D Spending: ${getVal('R&D Expenditure')} / as % of Revenue: ${getVal('R&D as %')}
+- Revenue prior year: ${getVal('Total Revenue prior')}
+
+--- TASK ---
+
+Score the company in each of the 6 categories on a scale of 1–5. Justify each score in exactly 2–3 sentences. No buzzwords, no generic phrases — only concrete statements directly referencing the numbers above.Keep in Mindt hat the Investor want to make a 10-year investment, the creditor a 3 year bond investment.
+
+FORMAT (follow this exactly):
+
+CATEGORY 1 – Profitability & Growth: [Score]/5
+Justification: [2–3 sentences]
+
+CATEGORY 2 – Liquidity & Solvency: [Score]/5
+Justification: [2–3 sentences]
+
+CATEGORY 3 – Cash Flow Quality: [Score]/5
+Justification: [2–3 sentences]
+
+CATEGORY 4 – Valuation: [Score]/5
+Justification: [2–3 sentences]
+
+CATEGORY 5 – Stability & Risk: [Score]/5
+Justification: [2–3 sentences]
+
+CATEGORY 6 – Employer Quality: [Score]/5
+Justification: [2–3 sentences]
+
+WEIGHTED TOTAL SCORES:
+- Investor Score: [(C1×3 + C2×2 + C3×3 + C4×3 + C5×3 + C6×1) / 15] = X/5
+- Creditor Score: [(C1×2 + C2×3 + C3×3 + C4×1 + C5×3 + C6×1) / 13] = X/5
+- Employee Score: [(C1×1 + C2×1 + C3×1 + C4×1 + C5×2 + C6×3) / 9] = X/5
+
+RED FLAGS (if any):
+- List a maximum of 3 concrete red flags visible from the numbers.
+- If none: "No critical red flags identified."
+
+KEY STRENGTHS:
+- List a maximum of 3 concrete strengths visible from the numbers.
+
+INVESTOR RECOMMENDATION:
+[1 paragraph, no buzzwords, concrete numbers only]
+
+CREDITOR RECOMMENDATION:
+[1 paragraph, no buzzwords, concrete numbers only]
+
+EMPLOYEE RECOMMENDATION:
+[1 paragraph, no buzzwords, concrete numbers only]`;
+}
+
+async function runAnalysis() {
+  const apiKey = localStorage.getItem('claude_api_key');
+  if (!apiKey) {
+    if (!confirm('No API key set. Go to Settings to add your Claude API key.\n\nOpen Settings now?')) return;
+    navTo('settings');
+    return;
+  }
+
+  navTo('analysis');
+
+  document.getElementById('analysis-loading').classList.remove('hidden');
+  document.getElementById('analysis-content').classList.add('hidden');
+  document.getElementById('analysis-empty').classList.add('hidden');
+
+  setStatus('Analyzing...', true);
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        messages: [{ role: 'user', content: buildPrompt() }]
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || 'API error ' + response.status);
+    }
+
+    const data = await response.json();
+    const text = data.content.map(b => b.text || '').join('');
+    state.analysisText = text;
+
+    renderAnalysis(text);
+    buildQA(text);
+    buildOutput(text);
+
+    document.getElementById('badge-analysis').textContent = '✓';
+    document.getElementById('badge-analysis').className = 'nav-badge ok';
+    document.getElementById('badge-qa').textContent = '✓';
+    document.getElementById('badge-qa').className = 'nav-badge ok';
+    document.getElementById('badge-output').textContent = '✓';
+    document.getElementById('badge-output').className = 'nav-badge ok';
+    setStatus('Done', false);
+
+  } catch(e) {
+    document.getElementById('analysis-loading').classList.add('hidden');
+    document.getElementById('analysis-empty').classList.remove('hidden');
+    document.getElementById('analysis-empty').innerHTML = `<div class="empty-icon">⚠</div><div style="color:var(--red)">${e.message}</div>`;
+    setStatus('Error', false);
+  }
+}
+
+function renderAnalysis(text) {
+  document.getElementById('analysis-loading').classList.add('hidden');
+  document.getElementById('analysis-content').classList.remove('hidden');
+
+  // Scores
+  const invScore = extractScore(text, 'Investor Score');
+  const credScore = extractScore(text, 'Creditor Score');
+  const empScore = extractScore(text, 'Employee Score');
+  state.scores = { inv: invScore, cred: credScore, emp: empScore };
+
+  setScore('investor', invScore);
+  setScore('creditor', credScore);
+  setScore('employee', empScore);
+
+  // Category cards
+  const cats = [
+    'Profitability & Growth',
+    'Liquidity & Solvency',
+    'Cash Flow Quality',
+    'Valuation',
+    'Stability & Risk',
+    'Employer Quality'
+  ];
+  let catHtml = '';
+  cats.forEach((cat, i) => {
+    const regex = new RegExp(`CATEGORY ${i+1}[^:]*:\\s*(\\d)/5\\s*\\nJustification:\\s*([^\\n]+(?:\\n[^\\n]+)*)`, 'i');
+    const m = text.match(regex);
+    const score = m ? parseInt(m[1]) : null;
+    const just = m ? m[2].replace(/\n/g,' ').trim().substring(0, 200) : '—';
+    const color = score >= 4 ? 'var(--green)' : score >= 3 ? 'var(--amber)' : score ? 'var(--red)' : 'var(--text3)';
+    catHtml += `<div class="cat-card">
+      <div class="cat-score" style="color:${color}">${score || '—'}</div>
+      <div class="cat-info">
+        <div class="cat-name">${cat}</div>
+        <div class="cat-just">${just}</div>
+      </div>
+    </div>`;
+  });
+  document.getElementById('cat-grid').innerHTML = catHtml;
+
+  // Raw text
+  document.getElementById('analysis-raw-text').textContent = text;
+
+  // Flags
+  const flagsRaw = extractSection(text, 'RED FLAGS', ['KEY STRENGTHS', 'INVESTOR REC']);
+  const flags = flagsRaw.split('\n').filter(l => l.trim().startsWith('-')).map(l => l.replace(/^-\s*/,'').trim());
+  document.getElementById('flags-list').innerHTML = flags.length ?
+    flags.map(f => `<li class="flag-item"><span class="flag-icon red">⚑</span><span>${f}</span></li>`).join('') :
+    '<li class="flag-item"><span class="flag-icon green">✓</span><span>No critical red flags identified.</span></li>';
+
+  // Strengths
+  const strRaw = extractSection(text, 'KEY STRENGTHS', ['INVESTOR REC', 'CREDITOR REC']);
+  const strs = strRaw.split('\n').filter(l => l.trim().startsWith('-')).map(l => l.replace(/^-\s*/,'').trim());
+  document.getElementById('strengths-list').innerHTML = strs.map(s =>
+    `<li class="flag-item"><span class="flag-icon green">★</span><span>${s}</span></li>`).join('') ||
+    '<li class="flag-item"><span style="color:var(--text3)">No strengths extracted.</span></li>';
+}
+
+function setScore(id, score) {
+  const el = document.getElementById('sc-'+id);
+  const pb = document.getElementById('pb-'+id);
+  if (score) {
+    el.textContent = score.toFixed(2) + '/5';
+    el.className = 'score-num ' + (score >= 4 ? 'high' : score >= 3 ? 'mid' : 'low');
+    pb.style.width = ((score/5)*100).toFixed(0) + '%';
+    if (score < 3) pb.style.background = 'var(--red)';
+    else if (score < 4) pb.style.background = 'var(--amber)';
+  }
+}
+
+function buildQA(text) {
+  const all = [...state.parsed.uc1, ...state.parsed.uc2, ...state.parsed.uc3];
+  const total = all.length;
+  const na = all.filter(r => r.value === 'not available').length;
+  const withPage = all.filter(r => r.value !== 'not available' && r.page).length;
+  const available = total - na;
+  const hasAllCats = /CATEGORY 6/i.test(text);
+  const hasScores = /Investor Score/i.test(text) && /Creditor Score/i.test(text);
+  const hasRecs = /INVESTOR RECOMMENDATION/i.test(text);
+  const hasFlags = /RED FLAGS/i.test(text);
+
+  const checks = [
+    { ok: !!state.company, msg: `Company identified: ${state.company || 'NOT FOUND'} · FY ${state.year}` },
+    { ok: total > 0, msg: `${total} KPIs parsed from NotebookLM output` },
+    { ok: withPage === available, msg: `${withPage}/${available} available KPIs have page citations` },
+    { ok: na === 0, msg: na === 0 ? 'All KPIs successfully extracted' : `${na} KPIs marked "not available" — documented in output` },
+    { ok: hasAllCats, msg: hasAllCats ? 'All 6 scoring categories present in analysis' : 'Some scoring categories may be missing' },
+    { ok: hasScores, msg: hasScores ? 'Weighted scores calculated for all 3 use cases' : 'Weighted scores not found in output' },
+    { ok: hasRecs, msg: hasRecs ? 'All 3 use-case recommendations generated' : 'Recommendations section not found' },
+    { ok: hasFlags, msg: hasFlags ? 'Red flags and strengths section present' : 'Red flags section not found' }
+  ];
+
+  let html = '';
+  checks.forEach(c => {
+    html += `<div class="qa-item">
+      <span class="qa-icon ${c.ok?'ok':'warn'}">${c.ok?'✓':'⚠'}</span>
+      <span style="color:${c.ok?'var(--text)':'var(--amber)'}">${c.msg}</span>
+    </div>`;
+  });
+  document.getElementById('qa-list').innerHTML = html;
+}
+
+async function runQAVerification() {
+  const apiKey = localStorage.getItem('claude_api_key');
+  if (!apiKey) { alert('No API key set. Go to Settings first.'); return; }
+  if (!state.company) { alert('Run the main analysis first.'); return; }
+
+  const btn = document.getElementById('qa-ai-btn');
+  btn.disabled = true;
+  document.getElementById('qa-ai-result').innerHTML = '<div class="loading-label">Claude is verifying numbers...</div><div class="loading-bar"><div class="loading-fill"></div></div>';
+
+  const all = [...state.parsed.uc1, ...state.parsed.uc2, ...state.parsed.uc3];
+  const kpiLines = all
+    .filter(r => r.value !== 'not available')
+    .map(r => `- ${r.metric}: ${r.value}${r.unit && r.unit !== 'not available' ? ' ' + r.unit : ''}`)
+    .join('\n');
+
+  const prompt = `You are a financial data auditor. The following KPIs were extracted from the annual report of ${state.company} for fiscal year ${state.year}.
+
+Your task: For each metric below, write exactly ONE short sentence stating whether the value is plausible — based on your knowledge of this company's publicly reported financials and typical year-over-year growth or decline patterns. Flag any figure that seems inconsistent, too high, too low, or not in line with known data.
+
+EXTRACTED FIGURES:
+${kpiLines}
+
+Output format — one line per metric, no headers, no intro:
+✓ [Metric name]: [one sentence confirming the value is plausible, referencing expected range or prior year if known]
+⚠ [Metric name]: [one sentence explaining why this value looks off and should be double-checked]
+
+Be brief and factual. Reference actual numbers or known benchmarks where possible.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1200,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || 'API error ' + res.status); }
+    const data = await res.json();
+    const text = data.content.map(b => b.text || '').join('');
+
+    let html = '';
+    text.split('\n').filter(l => l.trim()).forEach(line => {
+      const ok = line.trimStart().startsWith('✓');
+      const warn = line.trimStart().startsWith('⚠');
+      const color = ok ? 'var(--green)' : warn ? 'var(--amber)' : 'var(--text2)';
+      const icon = ok ? '✓' : warn ? '⚠' : '·';
+      const content = line.replace(/^[\s✓⚠·]+/, '');
+      html += `<div class="qa-item">
+        <span class="qa-icon" style="color:${color};flex-shrink:0">${icon}</span>
+        <span style="color:${color};font-size:12px;line-height:1.5">${content}</span>
+      </div>`;
+    });
+    document.getElementById('qa-ai-result').innerHTML = html || '<span style="color:var(--text2);font-size:13px">No output received.</span>';
+    btn.disabled = false;
+    btn.textContent = 'Re-verify →';
+  } catch(e) {
+    document.getElementById('qa-ai-result').innerHTML = `<span style="color:var(--red);font-size:13px">Error: ${e.message}</span>`;
+    btn.disabled = false;
+  }
+}
+
+// ─── GEMINI ───────────────────────────────────────────────────────────────────
+async function runGeminiAnalysis() {
+  const apiKey = localStorage.getItem('gemini_api_key');
+  if (!apiKey) {
+    if (!confirm('No Gemini API key set. Go to Settings to add it.\n\nOpen Settings now?')) return;
+    navTo('settings');
+    return;
+  }
+  if (!state.company) { alert('Parse your KPIs first (Step 1 → 2).'); return; }
+
+  navTo('gemini');
+  document.getElementById('gemini-loading').classList.remove('hidden');
+  document.getElementById('gemini-content').classList.add('hidden');
+  document.getElementById('gemini-empty').classList.add('hidden');
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: buildPrompt() }] }] })
+      }
+    );
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || 'API error ' + res.status); }
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
+    if (!text) throw new Error('Empty response from Gemini');
+
+    renderGeminiAnalysis(text);
+    document.getElementById('badge-gemini').textContent = '✓';
+    document.getElementById('badge-gemini').className = 'nav-badge ok';
+  } catch(e) {
+    document.getElementById('gemini-loading').classList.add('hidden');
+    document.getElementById('gemini-empty').classList.remove('hidden');
+    document.getElementById('gemini-empty').innerHTML = `<div class="empty-icon" style="color:var(--red)">⚠</div><div style="color:var(--red)">${e.message}</div>`;
+  }
+}
+
+function renderGeminiAnalysis(text) {
+  document.getElementById('gemini-loading').classList.add('hidden');
+  document.getElementById('gemini-content').classList.remove('hidden');
+
+  const invScore = extractScore(text, 'Investor Score');
+  const credScore = extractScore(text, 'Creditor Score');
+  const empScore = extractScore(text, 'Employee Score');
+  state.geminiScores = { inv: invScore, cred: credScore, emp: empScore };
+  state.geminiText = text;
+
+  const setGScore = (id, score) => {
+    const el = document.getElementById('gsc-'+id), pb = document.getElementById('gpb-'+id);
+    if (score) {
+      el.textContent = score.toFixed(2) + '/5';
+      el.className = 'score-num ' + (score >= 4 ? 'high' : score >= 3 ? 'mid' : 'low');
+      pb.style.width = ((score/5)*100).toFixed(0) + '%';
+    }
+  };
+  setGScore('investor', invScore);
+  setGScore('creditor', credScore);
+  setGScore('employee', empScore);
+
+  const cats = ['Profitability & Growth','Liquidity & Solvency','Cash Flow Quality','Valuation','Stability & Risk','Employer Quality'];
+  let catHtml = '';
+  cats.forEach((cat, i) => {
+    const regex = new RegExp(`CATEGORY ${i+1}[^:]*:\\s*(\\d)/5\\s*\\nJustification:\\s*([^\\n]+(?:\\n[^\\n]+)*)`, 'i');
+    const m = text.match(regex);
+    const score = m ? parseInt(m[1]) : null;
+    const just = m ? m[2].replace(/\n/g,' ').trim().substring(0,200) : '—';
+    const color = score >= 4 ? 'var(--green)' : score >= 3 ? 'var(--amber)' : score ? 'var(--red)' : 'var(--text3)';
+    catHtml += `<div class="cat-card"><div class="cat-score" style="color:${color}">${score||'—'}</div><div class="cat-info"><div class="cat-name">${cat}</div><div class="cat-just">${just}</div></div></div>`;
+  });
+  document.getElementById('gcat-grid').innerHTML = catHtml;
+  document.getElementById('gemini-raw-text').textContent = text;
+
+  buildGeminiCompare();
+}
+
+function buildGeminiCompare() {
+  const cs = state.scores, gs = state.geminiScores || {};
+  if (!cs.inv && !gs.inv) {
+    document.getElementById('gemini-compare-content').innerHTML = '<p style="color:var(--text2);font-size:13px;padding:10px 0">Run the Claude analysis first to compare scores.</p>';
+    return;
+  }
+  const row = (label, c, g) => {
+    const diff = (c && g) ? (g - c).toFixed(2) : '—';
+    const diffColor = diff === '—' ? 'var(--text3)' : parseFloat(diff) > 0 ? 'var(--green)' : parseFloat(diff) < 0 ? 'var(--red)' : 'var(--text2)';
+    const diffStr = diff !== '—' && parseFloat(diff) > 0 ? '+' + diff : diff;
+    return `<tr>
+      <td class="kpi-metric">${label}</td>
+      <td class="kpi-value">${c ? c.toFixed(2)+'/5' : '—'}</td>
+      <td class="kpi-value" style="color:var(--blue)">${g ? g.toFixed(2)+'/5' : '—'}</td>
+      <td class="kpi-value" style="color:${diffColor}">${diffStr}</td>
+    </tr>`;
+  };
+  document.getElementById('gemini-compare-content').innerHTML = `
+    <table class="kpi-table" style="margin-top:8px">
+      <thead><tr><th>Use case</th><th>Claude</th><th style="color:var(--blue)">Gemini</th><th>Δ</th></tr></thead>
+      <tbody>
+        ${row('UC1 · Investor', cs.inv, gs.inv)}
+        ${row('UC2 · Creditor', cs.cred, gs.cred)}
+        ${row('UC3 · Employee', cs.emp, gs.emp)}
+      </tbody>
+    </table>`;
+}
+
+function showGeminiTab(tab, el) {
+  ['raw','compare'].forEach(t => document.getElementById('gtab-'+t).classList.add('hidden'));
+  document.querySelectorAll('#panel-gemini .tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('gtab-'+tab).classList.remove('hidden');
+  el.classList.add('active');
+  if (tab === 'compare') buildGeminiCompare();
+}
+
+function copyGeminiRaw() {
+  navigator.clipboard.writeText(state.geminiText || '').then(() => {
+    const b = event.target; b.textContent = 'Copied!';
+    setTimeout(() => b.textContent = 'Copy', 2000);
+  });
+}
+
+function saveGeminiKey() {
+  const key = document.getElementById('gemini-key-input').value.trim();
+  if (!key) { alert('Please enter your Gemini API key.'); return; }
+  localStorage.setItem('gemini_api_key', key);
+  updateGeminiKeyStatus();
+}
+
+function clearGeminiKey() {
+  localStorage.removeItem('gemini_api_key');
+  document.getElementById('gemini-key-input').value = '';
+  updateGeminiKeyStatus();
+}
+
+function updateGeminiKeyStatus() {
+  const key = localStorage.getItem('gemini_api_key');
+  const el = document.getElementById('gemini-key-status');
+  el.textContent = key ? '✓ Gemini key saved (' + key.substring(0,8) + '...)' : 'No Gemini key saved.';
+  el.style.color = key ? 'var(--green)' : 'var(--text2)';
+}
+
+function buildOutput(text) {
+  // Category scores grid
+  const cats = [
+    'Profitability & Growth',
+    'Liquidity & Solvency',
+    'Cash Flow Quality',
+    'Valuation',
+    'Stability & Risk',
+    'Employer Quality'
+  ];
+  let catHtml = '';
+  cats.forEach((cat, i) => {
+    const regex = new RegExp(`CATEGORY ${i+1}[^:]*:\\s*(\\d)/5\\s*\\nJustification:\\s*([^\\n]+(?:\\n[^\\n]+)*)`, 'i');
+    const m = text.match(regex);
+    const score = m ? parseInt(m[1]) : null;
+    const just = m ? m[2].replace(/\n/g,' ').trim().substring(0, 200) : '—';
+    const color = score >= 4 ? 'var(--green)' : score >= 3 ? 'var(--amber)' : score ? 'var(--red)' : 'var(--text3)';
+    catHtml += `<div class="cat-card">
+      <div class="cat-score" style="color:${color}">${score || '—'}</div>
+      <div class="cat-info">
+        <div class="cat-name">${cat}</div>
+        <div class="cat-just">${just}</div>
+      </div>
+    </div>`;
+  });
+  document.getElementById('output-cat-grid').innerHTML = catHtml;
+
+  const { inv, cred, emp } = state.scores;
+  const verdictInv = !inv ? '—' : inv >= 4 ? 'Strong buy' : inv >= 3 ? 'Consider' : 'Avoid';
+  const verdictCred = !cred ? '—' : cred >= 4 ? 'Low risk' : cred >= 3 ? 'Moderate risk' : 'High risk';
+  const verdictEmp = !emp ? '—' : emp >= 4 ? 'Accept offer' : emp >= 3 ? 'Evaluate carefully' : 'Decline';
+  const cls = s => !s ? 'neu' : s >= 4 ? 'pos' : s >= 3 ? 'neu' : 'neg';
+
+  const invRec = extractSection(text, 'INVESTOR RECOMMENDATION', ['CREDITOR RECOMMENDATION', 'EMPLOYEE RECOMMENDATION']);
+  const credRec = extractSection(text, 'CREDITOR RECOMMENDATION', ['EMPLOYEE RECOMMENDATION']);
+  const empRec = extractSection(text, 'EMPLOYEE RECOMMENDATION', []);
+
+  document.getElementById('rec-grid').innerHTML = `
+    <div class="rec-card">
+      <div class="rec-uc">UC1 · Investor</div>
+      <div class="rec-verdict ${cls(inv)}">${verdictInv}</div>
+      <div class="rec-text">${invRec.substring(0,200)}${invRec.length>200?'…':''}</div>
+    </div>
+    <div class="rec-card">
+      <div class="rec-uc">UC2 · Creditor</div>
+      <div class="rec-verdict ${cls(cred)}">${verdictCred}</div>
+      <div class="rec-text">${credRec.substring(0,200)}${credRec.length>200?'…':''}</div>
+    </div>
+    <div class="rec-card">
+      <div class="rec-uc">UC3 · Employee</div>
+      <div class="rec-verdict ${cls(emp)}">${verdictEmp}</div>
+      <div class="rec-text">${empRec.substring(0,200)}${empRec.length>200?'…':''}</div>
+    </div>`;
+
+  const fullText = `ANNUAL REPORT ANALYSIS — ${state.company} (FY ${state.year})
+Generated via AI-assisted workflow
+${'='.repeat(60)}
+
+EXTRACTED KPIs
+${'-'.repeat(40)}
+${['UC1 — Investor','UC2 — Creditor','UC3 — Employee'].map((label, i) => {
+  const uc = ['uc1','uc2','uc3'][i];
+  return `\n[${label}]\n` + state.parsed[uc].map(r => `${r.metric}: ${r.value} ${r.unit} (p. ${r.page})`).join('\n');
+}).join('\n')}
+
+${'='.repeat(60)}
+
+${text}`;
+
+  document.getElementById('output-full').textContent = fullText;
+  document.getElementById('output-empty').classList.add('hidden');
+  document.getElementById('output-content').classList.remove('hidden');
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function extractScore(text, label) {
+  const lines = text.split('\n');
+  for (const line of lines) {
+    if (line.toLowerCase().includes(label.toLowerCase())) {
+      const matches = [...line.matchAll(/(\d+\.?\d*)\/5/g)];
+      if (matches.length > 0) return parseFloat(matches[matches.length - 1][1]);
+    }
+  }
+  return null;
+}
+
+function extractSection(text, start, ends) {
+  const s = text.indexOf(start);
+  if (s === -1) return '';
+  let e = text.length;
+  ends.forEach(en => { const i = text.indexOf(en, s + start.length); if (i !== -1 && i < e) e = i; });
+  return text.slice(s + start.length, e).replace(/^[\s:]+/, '').trim();
+}
+
+function showAnalysisTab(tab, el) {
+  ['raw','flags','strengths'].forEach(t => document.getElementById('atab-'+t).classList.add('hidden'));
+  document.querySelectorAll('#panel-analysis .tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('atab-'+tab).classList.remove('hidden');
+  el.classList.add('active');
+}
+
+function setStatus(text, active) {
+  document.getElementById('status-text').textContent = text;
+  document.getElementById('status-pill').className = 'status-pill' + (active ? ' active' : '');
+}
+
+function copyRaw() {
+  navigator.clipboard.writeText(state.analysisText).then(() => {
+    const b = event.target; b.textContent = 'Copied!';
+    setTimeout(() => b.textContent = 'Copy', 2000);
+  });
+}
+
+function copyFull() {
+  const text = document.getElementById('output-full').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const b = event.target; b.textContent = 'Copied!';
+    setTimeout(() => b.textContent = 'Copy all', 2000);
+  });
+}
+
+function submitOverlayKey() {
+  const key = document.getElementById('overlay-key-input').value.trim();
+  if (!key || !key.startsWith('sk-ant-')) {
+    document.getElementById('overlay-err').textContent = 'Bitte einen gültigen Claude API-Key eingeben (beginnt mit sk-ant-).';
+    return;
+  }
+  localStorage.setItem('claude_api_key', key);
+  document.getElementById('api-overlay').classList.add('hidden');
+  document.getElementById('api-key-input').value = key;
+  updateKeyStatus();
+}
+
+function saveApiKey() {
+  const key = document.getElementById('api-key-input').value.trim();
+  if (!key) { alert('Please enter your API key.'); return; }
+  localStorage.setItem('claude_api_key', key);
+  updateKeyStatus();
+}
+
+function clearApiKey() {
+  localStorage.removeItem('claude_api_key');
+  document.getElementById('api-key-input').value = '';
+  updateKeyStatus();
+}
+
+function updateKeyStatus() {
+  const key = localStorage.getItem('claude_api_key');
+  document.getElementById('key-status').textContent = key ? '✓ API key saved (' + key.substring(0,12) + '...)' : 'No API key saved.';
+  document.getElementById('key-status').style.color = key ? 'var(--green)' : 'var(--text2)';
+}
+
+function loadSampleData() {
+  document.getElementById('nlm-input').value = `Company
+Alphabet Inc.
+Fiscal Year
+2025
+— UC1 Investor —
+Metric\tValue\tUnit\tPage
+Return on Equity (ROE)\t31.83\t%\t48, 49
+Earnings per Share (EPS) current year\t10.81\t$\t49
+Earnings per Share (EPS) prior year\t8.04\t$\t49
+Earnings per Share (EPS) 2 years ago\t5.80\t$\t49
+Price-to-Earnings Ratio (P/E)\tnot available\tnot available\tnot available
+Free Cash Flow\t73,266\tmillions $\t52
+Revenue growth (YoY)\t15\t%\t28
+Debt-to-Equity Ratio\t0.12\tabsolute\t42, 48
+Dividend per share and payout history\t0.83 (2025), 0.60 (2024)\t$\t51
+— UC2 Creditor —
+Metric\tValue\tUnit\tPage
+Debt-to-Equity Ratio\t0.12\tabsolute\t42, 48
+Interest Coverage Ratio (EBIT / Interest Expense)\t175.32\tabsolute\t33, 49
+Current Ratio\t2.01\tabsolute\t48
+Operating Cash Flow\t164,713\tmillions $\t52
+Equity Ratio\t69.76\t%\t48
+Credit Rating\tnot available\tnot available\tnot available
+— UC3 Employee —
+Metric\tValue\tUnit\tPage
+Total Revenue current year\t402,836\tmillions $\t49
+Total Revenue prior year\t350,018\tmillions $\t49
+Net Income current year\t132,170\tmillions $\t49
+Net Income prior year\t100,118\tmillions $\t49
+Number of Employees current year\t190,820\tabsolute\t8
+Number of Employees prior year\tnot available\tnot available\tnot available
+R&D Expenditure\t61,087\tmillions $\t49
+R&D as % of Revenue\t15\t%\t29
+Operating Margin\t32\t%\t28`;
+}
+</script>
+</body>
+</html>
